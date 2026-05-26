@@ -6,6 +6,12 @@ import { Capacitor } from '@capacitor/core'
 import AuthScreen from './screens/AuthScreen'
 import AppShell from './screens/AppShell'
 
+async function handleOAuthCallback(url) {
+  try { await Browser.close() } catch (_) {}
+  const { error } = await supabase.auth.exchangeCodeForSession(url)
+  if (error) console.error('OAuth exchange error:', error.message)
+}
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -20,20 +26,27 @@ export default function App() {
       setSession(session)
     })
 
-    let appUrlListener
-    if (Capacitor.isNativePlatform()) {
-      appUrlListener = CapApp.addListener('appUrlOpen', async ({ url }) => {
-        if (url.startsWith('app.rentflow.app://auth/callback')) {
-          await Browser.close()
-          const { error } = await supabase.auth.exchangeCodeForSession(url)
-          if (error) console.error('OAuth callback error:', error.message)
-        }
-      })
+    if (!Capacitor.isNativePlatform()) {
+      return () => subscription.unsubscribe()
     }
+
+    // Cold start: app was launched directly from the deep link
+    CapApp.getLaunchUrl().then(result => {
+      if (result?.url?.startsWith('app.rentflow.app://auth/callback')) {
+        handleOAuthCallback(result.url)
+      }
+    })
+
+    // Warm start: app was already running in background
+    const listenerPromise = CapApp.addListener('appUrlOpen', ({ url }) => {
+      if (url.startsWith('app.rentflow.app://auth/callback')) {
+        handleOAuthCallback(url)
+      }
+    })
 
     return () => {
       subscription.unsubscribe()
-      appUrlListener?.then(l => l.remove())
+      listenerPromise.then(l => l.remove())
     }
   }, [])
 
