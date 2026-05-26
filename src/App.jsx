@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
+import { App as CapApp } from '@capacitor/app'
+import { Browser } from '@capacitor/browser'
+import { Capacitor } from '@capacitor/core'
 import AuthScreen from './screens/AuthScreen'
 import AppShell from './screens/AppShell'
 
@@ -12,10 +15,26 @@ export default function App() {
       setSession(session)
       setLoading(false)
     })
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
     })
-    return () => subscription.unsubscribe()
+
+    let appUrlListener
+    if (Capacitor.isNativePlatform()) {
+      appUrlListener = CapApp.addListener('appUrlOpen', async ({ url }) => {
+        if (url.startsWith('app.rentflow.app://auth/callback')) {
+          await Browser.close()
+          const { error } = await supabase.auth.exchangeCodeForSession(url)
+          if (error) console.error('OAuth callback error:', error.message)
+        }
+      })
+    }
+
+    return () => {
+      subscription.unsubscribe()
+      appUrlListener?.then(l => l.remove())
+    }
   }, [])
 
   if (loading) return (

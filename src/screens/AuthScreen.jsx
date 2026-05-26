@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { Browser } from '@capacitor/browser'
+import { Capacitor } from '@capacitor/core'
 
 const T = {
   bg: '#0A0A0F', surface: '#13131A', surfaceAlt: '#1C1C26', border: '#2A2A38',
@@ -23,14 +25,31 @@ export default function AuthScreen() {
   const signInWithGoogle = async () => {
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithOAuth({
+
+    const isNative = Capacitor.isNativePlatform()
+    const redirectTo = isNative
+      ? 'app.rentflow.app://auth/callback'
+      : `${window.location.origin}/auth/callback`
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://tcoaluuomcnrfefokhhn.supabase.co/auth/v1/callback',
-        skipBrowserRedirect: false,
+        redirectTo,
+        skipBrowserRedirect: true,
       },
     })
-    if (error) { setError(error.message); setLoading(false) }
+
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+      return
+    }
+
+    if (isNative && data?.url) {
+      await Browser.open({ url: data.url, windowName: '_self' })
+    } else if (data?.url) {
+      window.location.href = data.url
+    }
   }
 
   return (
@@ -67,7 +86,7 @@ export default function AuthScreen() {
           <button onClick={signInWithGoogle} disabled={loading}
             style={{ width: '100%', background: loading ? T.border : '#fff', color: '#1a1a1a', border: 'none', borderRadius: 16, padding: '16px 24px', fontSize: 15, fontWeight: 700, cursor: loading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, boxShadow: '0 4px 24px #00000033' }}>
             <GoogleIc />
-            {loading ? 'Redirecting...' : 'Continue with Google'}
+            {loading ? 'Opening browser...' : 'Continue with Google'}
           </button>
 
           <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: T.tm, lineHeight: 1.6 }}>
