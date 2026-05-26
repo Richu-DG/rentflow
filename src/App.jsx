@@ -8,8 +8,23 @@ import AppShell from './screens/AppShell'
 
 async function handleOAuthCallback(url) {
   try { await Browser.close() } catch (_) {}
+
+  // Implicit flow: tokens arrive in the URL hash fragment
+  const hash = url.split('#')[1]
+  if (hash) {
+    const params = new URLSearchParams(hash)
+    const accessToken = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+    if (accessToken) {
+      const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+      if (error) console.error('setSession error:', error.message)
+      return
+    }
+  }
+
+  // Fallback: PKCE code exchange
   const { error } = await supabase.auth.exchangeCodeForSession(url)
-  if (error) console.error('OAuth exchange error:', error.message)
+  if (error) console.error('exchangeCode error:', error.message)
 }
 
 export default function App() {
@@ -30,14 +45,14 @@ export default function App() {
       return () => subscription.unsubscribe()
     }
 
-    // Cold start: app was launched directly from the deep link
+    // Cold start: app launched directly via deep link
     CapApp.getLaunchUrl().then(result => {
       if (result?.url?.startsWith('app.rentflow.app://auth/callback')) {
         handleOAuthCallback(result.url)
       }
     })
 
-    // Warm start: app was already running in background
+    // Warm start: app already in background
     const listenerPromise = CapApp.addListener('appUrlOpen', ({ url }) => {
       if (url.startsWith('app.rentflow.app://auth/callback')) {
         handleOAuthCallback(url)
