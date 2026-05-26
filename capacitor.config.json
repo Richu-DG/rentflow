@@ -1,0 +1,11 @@
+{
+  "appId": "app.rentflow.app",
+  "appName": "RentFlow",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}
