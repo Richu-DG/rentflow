@@ -193,20 +193,9 @@ export default function TenantHome({ profile, onNavigate }) {
             <div style={{ fontSize: 13, color: T.ts, marginBottom: 4 }}>Hello 👋</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: T.tp }}>{profile.full_name}</div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 12, color: T.ts }}>{building?.name}</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: T.accent }}>{unit.name}</div>
-            </div>
-            <div onClick={() => onNavigate('messages', { unit, building })}
-              style={{ position: 'relative', width: 40, height: 40, background: T.surface, borderRadius: 12, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-              <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
-              {unreadCount > 0 && (
-                <div style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, background: T.overdue, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#fff' }}>
-                  {unreadCount}
-                </div>
-              )}
-            </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 12, color: T.ts }}>{building?.name}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.accent }}>{unit.name}</div>
           </div>
         </div>
 
@@ -324,12 +313,27 @@ export default function TenantHome({ profile, onNavigate }) {
           </div>
         </div>
 
-        {/* Building community chat */}
-        <button onClick={() => onNavigate('buildingChat', { building })}
-          style={{ width: '100%', background: T.accentDim, border: `1px solid ${T.accent}33`, borderRadius: 14, padding: '13px', fontSize: 14, fontWeight: 700, color: T.accent, cursor: 'pointer', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
-          {building?.name} Community
-        </button>
+        {/* Messaging */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.ts, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.8 }}>Messages</div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => onNavigate('messages', { unit, building })}
+              style={{ flex: 1, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 14, padding: '14px 10px', fontSize: 13, fontWeight: 700, color: T.tp, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, position: 'relative' }}>
+              <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
+              Message Landlord
+              {unreadCount > 0 && (
+                <div style={{ position: 'absolute', top: 10, right: 10, minWidth: 18, height: 18, background: T.overdue, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', padding: '0 4px' }}>
+                  {unreadCount}
+                </div>
+              )}
+            </button>
+            <button onClick={() => onNavigate('buildingChat', { building })}
+              style={{ flex: 1, background: T.accentDim, border: `1px solid ${T.accent}33`, borderRadius: 14, padding: '14px 10px', fontSize: 13, fontWeight: 700, color: T.accent, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" /></svg>
+              Building Group
+            </button>
+          </div>
+        </div>
 
         {/* Leave unit */}
         <button onClick={() => setLeaveModal(true)}

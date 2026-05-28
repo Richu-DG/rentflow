@@ -156,10 +156,6 @@ export default function BuildingDetail({ building: buildingProp, onBack, onNavig
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <div onClick={() => onNavigate('buildingChat', { building })}
-              style={{ width: 36, height: 36, background: T.accentDim, borderRadius: 10, border: `1px solid ${T.accent}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <ChatIc />
-            </div>
             <div onClick={openEdit}
               style={{ width: 36, height: 36, background: T.surfaceAlt, borderRadius: 10, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <EditIc />
@@ -169,6 +165,17 @@ export default function BuildingDetail({ building: buildingProp, onBack, onNavig
               <PlusIc />
             </div>
           </div>
+        </div>
+
+        {/* Community chat button */}
+        <div onClick={() => onNavigate('buildingChat', { building })}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, background: T.accentDim, border: `1px solid ${T.accent}33`, borderRadius: 14, padding: '12px 16px', cursor: 'pointer', marginBottom: 14 }}>
+          <ChatIc />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>Community Chat</div>
+            <div style={{ fontSize: 11, color: T.ts }}>Message all tenants in {building.name}</div>
+          </div>
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
         </div>
 
         {/* Search */}
