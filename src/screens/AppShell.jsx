@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { PushNotifications } from '@capacitor/push-notifications'
+import { Capacitor } from '@capacitor/core'
 import Dashboard from './Dashboard'
 import AddBuilding from './AddBuilding'
 import BuildingDetail from './BuildingDetail'
@@ -83,6 +85,33 @@ export default function AppShell({ session }) {
   }
 
   useEffect(() => { fetchProfile() }, [session])
+
+  useEffect(() => {
+    if (!session?.user?.id || !Capacitor.isNativePlatform()) return
+    registerPushToken(session.user.id)
+  }, [session])
+
+  const registerPushToken = async (userId) => {
+    try {
+      const { receive } = await PushNotifications.checkPermissions()
+      const status = receive === 'granted'
+        ? { receive: 'granted' }
+        : await PushNotifications.requestPermissions()
+
+      if (status.receive !== 'granted') return
+
+      await PushNotifications.register()
+
+      PushNotifications.addListener('registration', async ({ value: token }) => {
+        await supabase.from('device_tokens').upsert(
+          { user_id: userId, token, platform: 'android', updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' }
+        )
+      })
+    } catch {
+      // Silently fail — app works fine without notifications
+    }
+  }
 
   const navigate = (to, data = null) => { setScreen(to); setScreenData(data) }
   const goHome = () => { setScreen('main'); setScreenData(null); setTab('home'); setRefreshKey(k => k + 1) }

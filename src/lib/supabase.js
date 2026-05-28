@@ -8,3 +8,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     flowType: 'implicit',
   },
 })
+
+export async function sendNotification({ to_user_id, title, body, data = {} }) {
+  try {
+    await supabase.functions.invoke('send-notification', {
+      body: { to_user_id, title, body, data },
+    })
+  } catch {
+    // Never block the UI if a notification fails
+  }
+}

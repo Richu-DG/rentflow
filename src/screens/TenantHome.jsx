@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, sendNotification } from '../lib/supabase'
 
 const T = {
   bg: '#0A0A0F', surface: '#13131A', surfaceAlt: '#1C1C26', border: '#2A2A38',
@@ -16,16 +16,35 @@ const Pill = ({ status }) => {
     confirmed: { bg: T.accentDim, c: T.paid, l: 'Paid ✓' },
     pending:   { bg: '#FFB80022', c: T.pending, l: 'Awaiting Confirmation' },
     rejected:  { bg: '#FF4D6A22', c: T.overdue, l: 'Rejected' },
+    unpaid:    { bg: '#FF4D6A18', c: T.overdue, l: 'Unpaid' },
   }
   const s = m[status] || m.pending
   return <span style={{ background: s.bg, color: s.c, borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 700 }}>{s.l}</span>
+}
+
+function buildMonthSlots(unitCreatedAt, payments, currentMonth) {
+  const start = new Date(unitCreatedAt)
+  const slots = []
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+  const [cy, cm] = currentMonth.split('-').map(Number)
+
+  while (cursor.getFullYear() < cy || (cursor.getFullYear() === cy && cursor.getMonth() + 1 <= cm)) {
+    const month = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`
+    const label = cursor.toLocaleString('en-KE', { month: 'long', year: 'numeric' })
+    const payment = payments.find(p => p.month === month) || null
+    const isPast = month < currentMonth
+    slots.push({ month, label, payment, status: payment?.status || (isPast ? 'unpaid' : 'current') })
+    cursor.setMonth(cursor.getMonth() + 1)
+  }
+
+  return slots.reverse()
 }
 
 export default function TenantHome({ profile }) {
   const [unit, setUnit] = useState(null)
   const [building, setBuilding] = useState(null)
   const [currentPayment, setCurrentPayment] = useState(null)
-  const [history, setHistory] = useState([])
+  const [monthSlots, setMonthSlots] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [mpesaRef, setMpesaRef] = useState('')
@@ -37,7 +56,6 @@ export default function TenantHome({ profile }) {
   useEffect(() => { fetchData() }, [profile.id])
 
   const fetchData = async () => {
-    // Get tenant's unit
     const { data: unitData } = await supabase
       .from('units')
       .select('*, buildings(*)')
@@ -49,15 +67,14 @@ export default function TenantHome({ profile }) {
     setUnit(unitData)
     setBuilding(unitData.buildings)
 
-    // Get payments
     const { data: pays } = await supabase
       .from('payments')
       .select('*')
       .eq('unit_id', unitData.id)
       .order('month', { ascending: false })
-      .limit(6)
 
-    setHistory(pays || [])
+    const slots = buildMonthSlots(unitData.created_at, pays || [], currentMonth)
+    setMonthSlots(slots)
     setCurrentPayment((pays || []).find(p => p.month === currentMonth) || null)
     setLoading(false)
   }
@@ -80,7 +97,25 @@ export default function TenantHome({ profile }) {
 
     if (!error && data) {
       setCurrentPayment(data)
-      setHistory(prev => [data, ...prev.filter(p => p.month !== currentMonth)])
+      setMonthSlots(prev => prev.map(s =>
+        s.month === currentMonth ? { ...s, payment: data, status: data.status } : s
+      ))
+
+      // Notify the landlord
+      const { data: buildingData } = await supabase
+        .from('buildings')
+        .select('landlord_id, name')
+        .eq('id', building.id)
+        .single()
+
+      if (buildingData?.landlord_id) {
+        sendNotification({
+          to_user_id: buildingData.landlord_id,
+          title: 'Payment Marked',
+          body: `${profile.full_name} has marked rent for ${unit.name} as paid${mpesaRef.trim() ? ` (Ref: ${mpesaRef.trim()})` : ''}.`,
+          data: { type: 'payment_marked', unit_id: unit.id },
+        })
+      }
     }
     setSubmitting(false)
     setModal(false)
@@ -194,22 +229,28 @@ export default function TenantHome({ profile }) {
           </div>
         </div>
 
-        {/* Payment history */}
+        {/* Payment history — skip current month (shown in card above) */}
         <div style={{ fontSize: 17, fontWeight: 700, color: T.tp, marginBottom: 14 }}>Payment History</div>
-        {history.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '24px 0', color: T.ts, fontSize: 14 }}>No payments yet.</div>
-        ) : history.map((p, i) => (
-          <div key={p.id} style={{ display: 'flex', alignItems: 'center', padding: '14px 0', borderBottom: i < history.length - 1 ? `1px solid ${T.border}` : 'none' }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: T.tp }}>{p.month}</div>
-              <div style={{ fontSize: 12, color: T.ts }}>Ref: {p.mpesa_ref || '—'}</div>
+        {(() => {
+          const pastSlots = monthSlots.filter(s => s.month !== currentMonth)
+          if (pastSlots.length === 0) return (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: T.ts, fontSize: 14 }}>No history yet.</div>
+          )
+          return pastSlots.map((s, i) => (
+            <div key={s.month} style={{ display: 'flex', alignItems: 'center', padding: '14px 0', borderBottom: i < pastSlots.length - 1 ? `1px solid ${T.border}` : 'none' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: s.status === 'unpaid' ? T.overdue : T.tp }}>{s.label}</div>
+                <div style={{ fontSize: 12, color: T.ts }}>
+                  {s.payment?.mpesa_ref ? `Ref: ${s.payment.mpesa_ref}` : s.status === 'unpaid' ? 'Not paid' : '—'}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.tp, marginBottom: 4 }}>KES {unit.rent.toLocaleString()}</div>
+                <Pill status={s.status} />
+              </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: T.tp, marginBottom: 4 }}>KES {p.amount.toLocaleString()}</div>
-              <Pill status={p.status} />
-            </div>
-          </div>
-        ))}
+          ))
+        })()}
       </div>
 
       {/* Mark as paid modal */}
