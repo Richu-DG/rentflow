@@ -10,6 +10,7 @@ import UnitDetail from './UnitDetail'
 import JoinScreen from './JoinScreen'
 import TenantHome from './TenantHome'
 import ProfileScreen from './ProfileScreen'
+import MessagesScreen from './MessagesScreen'
 
 const T = {
   bg: '#0A0A0F', surface: '#13131A', border: '#2A2A38',
@@ -144,6 +145,9 @@ export default function AppShell({ session }) {
   if (screen === 'unit') return (
     <UnitDetail unit={screenData.unit} building={screenData.building} onBack={() => navigate('building', screenData.building)} onNavigate={navigate} />
   )
+  if (screen === 'messages') return (
+    <MessagesScreen unit={screenData.unit} building={screenData.building} profile={profile} onBack={() => { setScreen('main'); setScreenData(null) }} />
+  )
 
   // Bottom nav tabs
   const navItems = [{ id: 'home', label: 'Home', Icon: HomeIc }, { id: 'profile', label: 'Profile', Icon: UserIc }]
@@ -152,7 +156,7 @@ export default function AppShell({ session }) {
     <div style={{ minHeight: '100vh', background: T.bg, display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {tab === 'home' && profile.role === 'landlord' && <Dashboard key={refreshKey} profile={profile} onNavigate={navigate} />}
-        {tab === 'home' && profile.role === 'tenant'   && <TenantHome profile={profile} />}
+        {tab === 'home' && profile.role === 'tenant'   && <TenantHome profile={profile} onNavigate={navigate} />}
         {tab === 'profile' && <ProfileScreen profile={profile} session={session} />}
       </div>
       <div style={{ height: 72, background: T.surface, borderTop: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-around', flexShrink: 0, paddingBottom: 8 }}>

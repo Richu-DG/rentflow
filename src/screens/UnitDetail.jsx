@@ -223,6 +223,15 @@ export default function UnitDetail({ unit: unitProp, building, onBack, onNavigat
           </div>
         </div>
 
+        {/* Message tenant */}
+        {unit.tenant_id && (
+          <button onClick={() => onNavigate('messages', { unit, building })}
+            style={{ width: '100%', background: T.accentDim, border: `1px solid ${T.accent}33`, borderRadius: 14, padding: '12px', color: T.accent, fontWeight: 600, fontSize: 13, cursor: 'pointer', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
+            Message Tenant
+          </button>
+        )}
+
         {/* Remove tenant / Delete unit */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
           {unit.tenant_id && (

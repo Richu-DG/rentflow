@@ -40,7 +40,7 @@ function buildMonthSlots(unitCreatedAt, payments, currentMonth) {
   return slots.reverse()
 }
 
-export default function TenantHome({ profile }) {
+export default function TenantHome({ profile, onNavigate }) {
   const [unit, setUnit] = useState(null)
   const [building, setBuilding] = useState(null)
   const [currentPayment, setCurrentPayment] = useState(null)
@@ -51,6 +51,7 @@ export default function TenantHome({ profile }) {
   const [submitting, setSubmitting] = useState(false)
   const [leaveModal, setLeaveModal] = useState(false)
   const [leaving, setLeaving] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   const leaveUnit = async () => {
     setLeaving(true)
@@ -70,6 +71,24 @@ export default function TenantHome({ profile }) {
 
   const currentMonth = new Date().toISOString().slice(0, 7)
   const monthLabel = new Date().toLocaleString('en-KE', { month: 'long', year: 'numeric' })
+
+  const getDaysUntilDue = () => {
+    if (!building) return null
+    const now = new Date()
+    const due = new Date(now.getFullYear(), now.getMonth(), building.due_day)
+    if (due < now) due.setMonth(due.getMonth() + 1)
+    return Math.ceil((due - now) / (1000 * 60 * 60 * 24))
+  }
+
+  const getStreak = () => {
+    let streak = 0
+    const past = monthSlots.filter(s => s.month < currentMonth)
+    for (const s of past) {
+      if (s.status === 'confirmed') streak++
+      else break
+    }
+    return streak
+  }
 
   useEffect(() => { fetchData() }, [profile.id])
 
@@ -94,6 +113,16 @@ export default function TenantHome({ profile }) {
     const slots = buildMonthSlots(unitData.created_at, pays || [], currentMonth)
     setMonthSlots(slots)
     setCurrentPayment((pays || []).find(p => p.month === currentMonth) || null)
+
+    // Unread messages count
+    const { count } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('unit_id', unitData.id)
+      .neq('sender_id', profile.id)
+      .is('read_at', null)
+    setUnreadCount(count || 0)
+
     setLoading(false)
   }
 
@@ -151,21 +180,61 @@ export default function TenantHome({ profile }) {
   )
 
   const payStatus = currentPayment?.status || null
+  const daysUntilDue = getDaysUntilDue()
+  const streak = getStreak()
+  const unpaidSlots = monthSlots.filter(s => s.status === 'unpaid')
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
       {/* Header */}
       <div style={{ padding: '20px 24px', background: `linear-gradient(180deg,${T.accentGlow} 0%,transparent 100%)` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
             <div style={{ fontSize: 13, color: T.ts, marginBottom: 4 }}>Hello 👋</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: T.tp }}>{profile.full_name}</div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 12, color: T.ts }}>{building?.name}</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: T.accent }}>{unit.name}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 12, color: T.ts }}>{building?.name}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: T.accent }}>{unit.name}</div>
+            </div>
+            <div onClick={() => onNavigate('messages', { unit, building })}
+              style={{ position: 'relative', width: 40, height: 40, background: T.surface, borderRadius: 12, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
+              {unreadCount > 0 && (
+                <div style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, background: T.overdue, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#fff' }}>
+                  {unreadCount}
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Stats row: streak + due countdown */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          {streak > 0 && (
+            <div style={{ flex: 1, background: T.accentDim, borderRadius: 14, border: `1px solid ${T.accent}33`, padding: '10px 14px' }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: T.accent }}>{streak} 🔥</div>
+              <div style={{ fontSize: 11, color: T.ts }}>month{streak > 1 ? 's' : ''} on time</div>
+            </div>
+          )}
+          {daysUntilDue !== null && payStatus !== 'confirmed' && (
+            <div style={{ flex: 1, background: daysUntilDue <= 3 ? '#FFB80018' : T.surfaceAlt, borderRadius: 14, border: `1px solid ${daysUntilDue <= 3 ? T.pending + '44' : T.border}`, padding: '10px 14px' }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: daysUntilDue <= 3 ? T.pending : T.tp }}>{daysUntilDue}d</div>
+              <div style={{ fontSize: 11, color: T.ts }}>until rent due</div>
+            </div>
+          )}
+        </div>
+
+        {/* Arrears warning */}
+        {unpaidSlots.length > 0 && (
+          <div style={{ background: '#FF4D6A12', borderRadius: 14, border: `1px solid ${T.overdue}33`, padding: '12px 16px', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.overdue }}>
+              ⚠ You have {unpaidSlots.length} unpaid month{unpaidSlots.length > 1 ? 's' : ''} — KES {(unpaidSlots.length * unit.rent).toLocaleString()} in arrears
+            </div>
+          </div>
+        )}
+
 
         {/* Rent card */}
         <div style={{

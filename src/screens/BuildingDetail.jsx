@@ -204,24 +204,50 @@ export default function BuildingDetail({ building: buildingProp, onBack, onNavig
             </div>
           </div>
         ) : filtered.map(unit => (
-          <div key={unit.id} onClick={() => onNavigate('unit', { unit, building })}
-            style={{ background: T.surface, borderRadius: 16, border: `1px solid ${T.border}`, padding: 16, marginBottom: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 46, height: 46, borderRadius: 14, background: statusBg(unit.paymentStatus), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: statusColor(unit.paymentStatus), flexShrink: 0 }}>
-              {unit.name.charAt(unit.name.length - 1)}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: T.tp }}>{unit.name}</div>
-              <div style={{ fontSize: 12, color: T.ts, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {unit.tenantName || 'Vacant'}
+          <div key={unit.id}
+            style={{ background: T.surface, borderRadius: 16, border: `1px solid ${unit.paymentStatus === 'pending' ? T.pending + '44' : T.border}`, padding: 16, marginBottom: 12 }}>
+            <div onClick={() => onNavigate('unit', { unit, building })}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
+              <div style={{ width: 46, height: 46, borderRadius: 14, background: statusBg(unit.paymentStatus), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: statusColor(unit.paymentStatus), flexShrink: 0 }}>
+                {unit.name.charAt(unit.name.length - 1)}
               </div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: T.tp, marginTop: 2 }}>
-                KES {unit.rent.toLocaleString()}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: T.tp }}>{unit.name}</div>
+                <div style={{ fontSize: 12, color: T.ts, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {unit.tenantName || 'Vacant'}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.tp, marginTop: 2 }}>
+                  KES {unit.rent.toLocaleString()}
+                  {unit.currentPayment?.mpesa_ref && (
+                    <span style={{ color: T.ts, fontWeight: 400 }}> · {unit.currentPayment.mpesa_ref}</span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                <Pill status={unit.paymentStatus} />
+                <ChevR />
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-              <Pill status={unit.paymentStatus} />
-              <ChevR />
-            </div>
+            {unit.paymentStatus === 'pending' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
+                <button onClick={async (e) => {
+                  e.stopPropagation()
+                  await supabase.from('payments').update({ status: 'confirmed', confirmed_at: new Date().toISOString() }).eq('id', unit.currentPayment.id)
+                  setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, paymentStatus: 'confirmed', currentPayment: { ...u.currentPayment, status: 'confirmed' } } : u))
+                }}
+                  style={{ background: T.accentDim, border: `1px solid ${T.accent}44`, borderRadius: 10, padding: '9px', color: T.accent, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  ✓ Confirm
+                </button>
+                <button onClick={async (e) => {
+                  e.stopPropagation()
+                  await supabase.from('payments').update({ status: 'rejected' }).eq('id', unit.currentPayment.id)
+                  setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, paymentStatus: 'rejected', currentPayment: { ...u.currentPayment, status: 'rejected' } } : u))
+                }}
+                  style={{ background: '#FF4D6A18', border: `1px solid ${T.overdue}44`, borderRadius: 10, padding: '9px', color: T.overdue, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  ✗ Reject
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
