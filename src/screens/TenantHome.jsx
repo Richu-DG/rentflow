@@ -324,6 +324,13 @@ export default function TenantHome({ profile, onNavigate }) {
           </div>
         </div>
 
+        {/* Building community chat */}
+        <button onClick={() => onNavigate('buildingChat', { building })}
+          style={{ width: '100%', background: T.accentDim, border: `1px solid ${T.accent}33`, borderRadius: 14, padding: '13px', fontSize: 14, fontWeight: 700, color: T.accent, cursor: 'pointer', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
+          {building?.name} Community
+        </button>
+
         {/* Leave unit */}
         <button onClick={() => setLeaveModal(true)}
           style={{ width: '100%', background: 'transparent', border: `1px solid ${T.overdue}33`, borderRadius: 14, padding: '12px', fontSize: 13, fontWeight: 600, color: T.overdue, cursor: 'pointer', marginBottom: 20 }}>

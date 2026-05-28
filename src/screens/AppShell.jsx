@@ -11,6 +11,7 @@ import JoinScreen from './JoinScreen'
 import TenantHome from './TenantHome'
 import ProfileScreen from './ProfileScreen'
 import MessagesScreen from './MessagesScreen'
+import BuildingChatScreen from './BuildingChatScreen'
 
 const T = {
   bg: '#0A0A0F', surface: '#13131A', border: '#2A2A38',
@@ -137,7 +138,7 @@ export default function AppShell({ session }) {
     <AddBuilding profile={profile} onBack={goHome} onSaved={goHome} />
   )
   if (screen === 'building') return (
-    <BuildingDetail building={screenData} onBack={goHome} onNavigate={navigate} />
+    <BuildingDetail building={screenData} onBack={goHome} onNavigate={navigate} profile={profile} />
   )
   if (screen === 'addUnit') return (
     <AddUnit building={screenData} onBack={() => navigate('building', screenData)} onSaved={() => navigate('building', screenData)} />
@@ -147,6 +148,9 @@ export default function AppShell({ session }) {
   )
   if (screen === 'messages') return (
     <MessagesScreen unit={screenData.unit} building={screenData.building} profile={profile} onBack={() => { setScreen('main'); setScreenData(null) }} />
+  )
+  if (screen === 'buildingChat') return (
+    <BuildingChatScreen building={screenData.building} profile={profile} onBack={() => { setScreen('main'); setScreenData(null) }} />
   )
 
   // Bottom nav tabs

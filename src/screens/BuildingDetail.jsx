@@ -13,6 +13,7 @@ const PlusIc = () => <svg width={18} height={18} viewBox="0 0 24 24" fill="none"
 const ChevR = () => <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={T.ts} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
 const SearchIc = () => <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={T.tm} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" /></svg>
 const EditIc = () => <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+const ChatIc = () => <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
 
 const ord = d => `${d}${d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'}`
 
@@ -31,7 +32,7 @@ const Pill = ({ status }) => {
   )
 }
 
-export default function BuildingDetail({ building: buildingProp, onBack, onNavigate }) {
+export default function BuildingDetail({ building: buildingProp, onBack, onNavigate, profile }) {
   const [building, setBuilding] = useState(buildingProp)
   const [units, setUnits] = useState([])
   const [loading, setLoading] = useState(true)
@@ -155,6 +156,10 @@ export default function BuildingDetail({ building: buildingProp, onBack, onNavig
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
+            <div onClick={() => onNavigate('buildingChat', { building })}
+              style={{ width: 36, height: 36, background: T.accentDim, borderRadius: 10, border: `1px solid ${T.accent}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <ChatIc />
+            </div>
             <div onClick={openEdit}
               style={{ width: 36, height: 36, background: T.surfaceAlt, borderRadius: 10, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
               <EditIc />
