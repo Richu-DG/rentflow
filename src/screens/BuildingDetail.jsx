@@ -43,6 +43,23 @@ export default function BuildingDetail({ building: buildingProp, onBack, onNavig
   const [editDueDay, setEditDueDay] = useState(building.due_day)
   const [editNotifyDay, setEditNotifyDay] = useState(building.notify_day)
   const [saving, setSaving] = useState(false)
+  const [confirmingAll, setConfirmingAll] = useState(false)
+
+  const confirmAll = async () => {
+    const currentMonth = new Date().toISOString().slice(0, 7)
+    const pendingUnits = units.filter(u => u.paymentStatus === 'pending')
+    if (pendingUnits.length === 0) return
+    setConfirmingAll(true)
+    const paymentIds = pendingUnits.map(u => u.currentPayment?.id).filter(Boolean)
+    if (paymentIds.length > 0) {
+      await supabase
+        .from('payments')
+        .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
+        .in('id', paymentIds)
+    }
+    await fetchUnits()
+    setConfirmingAll(false)
+  }
 
   const openEdit = () => {
     setEditName(building.name)
@@ -76,13 +93,24 @@ export default function BuildingDetail({ building: buildingProp, onBack, onNavig
       .eq('building_id', building.id)
       .order('name')
 
-    // Attach current month payment status to each unit
+    // Fetch tenant profiles for occupied units
+    const tenantIds = (unitsData || []).map(u => u.tenant_id).filter(Boolean)
+    let profileMap = {}
+    if (tenantIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', tenantIds)
+      profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p.full_name]))
+    }
+
     const enriched = (unitsData || []).map(u => {
       const thisMonth = (u.payments || []).find(p => p.month === currentMonth)
       return {
         ...u,
         paymentStatus: u.tenant_id ? (thisMonth?.status || 'pending') : 'vacant',
         currentPayment: thisMonth || null,
+        tenantName: u.tenant_id ? (profileMap[u.tenant_id] || 'Tenant') : null,
       }
     })
 
@@ -146,14 +174,20 @@ export default function BuildingDetail({ building: buildingProp, onBack, onNavig
             style={{ width: '100%', background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 14, padding: '12px 16px 12px 42px', color: T.tp, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
         </div>
 
-        {/* Filter tabs */}
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' }}>
+        {/* Filter tabs + confirm all */}
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', alignItems: 'center' }}>
           {[['all', 'All'], ['confirmed', 'Paid'], ['pending', 'Pending'], ['rejected', 'Overdue']].map(([val, label]) => (
             <div key={val} onClick={() => setFilter(val)}
               style={{ flexShrink: 0, padding: '7px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: filter === val ? T.accent : T.surfaceAlt, color: filter === val ? T.bg : T.ts, transition: 'all 0.2s' }}>
               {label} ({counts[val] ?? units.length})
             </div>
           ))}
+          {counts.pending > 0 && (
+            <div onClick={confirmAll}
+              style={{ flexShrink: 0, marginLeft: 'auto', padding: '7px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: T.accentDim, border: `1px solid ${T.accent}44`, color: T.accent }}>
+              {confirmingAll ? 'Confirming...' : `Confirm All (${counts.pending})`}
+            </div>
+          )}
         </div>
       </div>
 
@@ -178,7 +212,7 @@ export default function BuildingDetail({ building: buildingProp, onBack, onNavig
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: T.tp }}>{unit.name}</div>
               <div style={{ fontSize: 12, color: T.ts, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {unit.tenant_id ? 'Tenant assigned' : 'Vacant'}
+                {unit.tenantName || 'Vacant'}
               </div>
               <div style={{ fontSize: 13, fontWeight: 600, color: T.tp, marginTop: 2 }}>
                 KES {unit.rent.toLocaleString()}

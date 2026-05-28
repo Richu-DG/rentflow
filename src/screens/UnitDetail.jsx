@@ -1,5 +1,14 @@
 import { useState, useEffect } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { supabase, sendNotification } from '../lib/supabase'
+
+const shareWhatsApp = (text) => {
+  const encoded = encodeURIComponent(text)
+  const url = Capacitor.isNativePlatform()
+    ? `whatsapp://send?text=${encoded}`
+    : `https://wa.me/?text=${encoded}`
+  window.open(url, '_blank')
+}
 
 const T = {
   bg: '#0A0A0F', surface: '#13131A', surfaceAlt: '#1C1C26', border: '#2A2A38',
@@ -57,6 +66,15 @@ export default function UnitDetail({ unit: unitProp, building, onBack, onNavigat
   const [editSaving, setEditSaving] = useState(false)
   const [removeModal, setRemoveModal] = useState(false)
   const [removing, setRemoving] = useState(false)
+  const [deleteModal, setDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const deleteUnit = async () => {
+    setDeleting(true)
+    const { error } = await supabase.from('units').delete().eq('id', unit.id)
+    if (!error) onBack()
+    setDeleting(false)
+  }
 
   const saveEdit = async () => {
     setEditSaving(true)
@@ -205,13 +223,21 @@ export default function UnitDetail({ unit: unitProp, building, onBack, onNavigat
           </div>
         </div>
 
-        {/* Remove tenant */}
-        {unit.tenant_id && (
-          <button onClick={() => setRemoveModal(true)}
-            style={{ width: '100%', background: 'transparent', border: `1px solid ${T.overdue}44`, borderRadius: 14, padding: '12px', color: T.overdue, fontWeight: 600, fontSize: 13, cursor: 'pointer', marginBottom: 16 }}>
-            Remove Tenant
-          </button>
-        )}
+        {/* Remove tenant / Delete unit */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          {unit.tenant_id && (
+            <button onClick={() => setRemoveModal(true)}
+              style={{ flex: 1, background: 'transparent', border: `1px solid ${T.overdue}44`, borderRadius: 14, padding: '12px', color: T.overdue, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              Remove Tenant
+            </button>
+          )}
+          {!unit.tenant_id && (
+            <button onClick={() => setDeleteModal(true)}
+              style={{ flex: 1, background: 'transparent', border: `1px solid ${T.overdue}44`, borderRadius: 14, padding: '12px', color: T.overdue, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              Delete Unit
+            </button>
+          )}
+        </div>
 
         {/* Pending confirmation card */}
         {currentPayment?.status === 'pending' && (
@@ -237,16 +263,27 @@ export default function UnitDetail({ unit: unitProp, building, onBack, onNavigat
 
         {/* Confirmed card */}
         {currentPayment?.status === 'confirmed' && (
-          <div style={{ background: T.accentDim, borderRadius: 16, border: `1px solid ${T.accent}44`, padding: 16, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 36, height: 36, background: T.accent, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <CheckIc size={18} color={T.bg} />
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>Payment Confirmed</div>
-              <div style={{ fontSize: 12, color: T.ts }}>
-                {currentPayment.mpesa_ref ? `Ref: ${currentPayment.mpesa_ref}` : `Confirmed for ${currentMonth}`}
+          <div style={{ background: T.accentDim, borderRadius: 16, border: `1px solid ${T.accent}44`, padding: 16, marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ width: 36, height: 36, background: T.accent, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <CheckIc size={18} color={T.bg} />
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.accent }}>Payment Confirmed</div>
+                <div style={{ fontSize: 12, color: T.ts }}>
+                  {currentPayment.mpesa_ref ? `Ref: ${currentPayment.mpesa_ref}` : `Confirmed for ${currentMonth}`}
+                </div>
               </div>
             </div>
+            <button onClick={() => {
+              const month = new Date(currentMonth + '-01').toLocaleString('en-KE', { month: 'long', year: 'numeric' })
+              shareWhatsApp(
+                `*Rent Receipt — ${building.name}*\n\nUnit: ${unit.name}\nMonth: ${month}\nAmount: KES ${unit.rent.toLocaleString()}${currentPayment.mpesa_ref ? `\nM-Pesa Ref: ${currentPayment.mpesa_ref}` : ''}\nStatus: ✅ Confirmed\n\nThank you for your payment.`
+              )
+            }}
+              style={{ width: '100%', background: '#25D36618', border: '1px solid #25D36633', borderRadius: 12, padding: '10px', color: '#25D366', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              Send Receipt via WhatsApp
+            </button>
           </div>
         )}
 
@@ -257,10 +294,18 @@ export default function UnitDetail({ unit: unitProp, building, onBack, onNavigat
             <div style={{ fontSize: 11, color: T.ts, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>Invite Code</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: T.accent, letterSpacing: 6 }}>{unit.invite_code}</div>
           </div>
-          <button onClick={copyCode}
-            style={{ width: '100%', background: copied ? T.accent : T.accentDim, border: `1px solid ${T.accent}44`, borderRadius: 12, padding: 12, color: copied ? T.bg : T.accent, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.2s' }}>
-            {copied ? <><CheckIc size={16} color={T.bg} /> Copied!</> : <><CopyIc /> Copy Code</>}
-          </button>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <button onClick={copyCode}
+              style={{ background: copied ? T.accent : T.accentDim, border: `1px solid ${T.accent}44`, borderRadius: 12, padding: 12, color: copied ? T.bg : T.accent, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              {copied ? <><CheckIc size={14} color={T.bg} /> Copied!</> : <><CopyIc /> Copy Code</>}
+            </button>
+            <button onClick={() => shareWhatsApp(
+              `Hi! I'd like you to join RentFlow to track your rent payments.\n\nBuilding: ${building.name}\nUnit: ${unit.name}\nInvite Code: *${unit.invite_code}*\n\nDownload RentFlow and enter this code to get started.`
+            )}
+              style={{ background: '#25D36622', border: '1px solid #25D36644', borderRadius: 12, padding: 12, color: '#25D366', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              WhatsApp
+            </button>
+          </div>
           <div style={{ fontSize: 12, color: T.tm, marginTop: 10, lineHeight: 1.6 }}>
             Share this code with your tenant. They enter it in the RentFlow app to link to this unit.
           </div>
@@ -323,6 +368,29 @@ export default function UnitDetail({ unit: unitProp, building, onBack, onNavigat
               {editSaving ? 'Saving...' : 'Save Changes'}
             </button>
             <button onClick={() => setEditModal(false)}
+              style={{ width: '100%', background: 'transparent', color: T.ts, border: `1px solid ${T.border}`, borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete unit confirmation */}
+      {deleteModal && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000BB', display: 'flex', alignItems: 'flex-end', zIndex: 100 }}
+          onClick={() => setDeleteModal(false)}>
+          <div style={{ background: T.surface, borderRadius: '24px 24px 0 0', padding: '28px 24px 48px', width: '100%', boxSizing: 'border-box', maxWidth: 480, margin: '0 auto' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width: 40, height: 4, background: T.border, borderRadius: 2, margin: '0 auto 24px' }} />
+            <div style={{ fontSize: 20, fontWeight: 800, color: T.tp, marginBottom: 8 }}>Delete Unit?</div>
+            <div style={{ fontSize: 14, color: T.ts, marginBottom: 24, lineHeight: 1.6 }}>
+              This will permanently delete <span style={{ color: T.tp, fontWeight: 600 }}>{unit.name}</span> and all its payment history. This cannot be undone.
+            </div>
+            <button onClick={deleteUnit} disabled={deleting}
+              style={{ width: '100%', background: T.overdue, color: '#fff', border: 'none', borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
+              {deleting ? 'Deleting...' : 'Yes, Delete Unit'}
+            </button>
+            <button onClick={() => setDeleteModal(false)}
               style={{ width: '100%', background: 'transparent', color: T.ts, border: `1px solid ${T.border}`, borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
               Cancel
             </button>

@@ -49,6 +49,24 @@ export default function TenantHome({ profile }) {
   const [modal, setModal] = useState(false)
   const [mpesaRef, setMpesaRef] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [leaveModal, setLeaveModal] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+
+  const leaveUnit = async () => {
+    setLeaving(true)
+    const { error } = await supabase
+      .from('units')
+      .update({ tenant_id: null })
+      .eq('id', unit.id)
+    if (!error) {
+      setUnit(null)
+      setBuilding(null)
+      setMonthSlots([])
+      setCurrentPayment(null)
+    }
+    setLeaving(false)
+    setLeaveModal(false)
+  }
 
   const currentMonth = new Date().toISOString().slice(0, 7)
   const monthLabel = new Date().toLocaleString('en-KE', { month: 'long', year: 'numeric' })
@@ -176,12 +194,20 @@ export default function TenantHome({ profile }) {
           )}
 
           {payStatus === 'pending' && (
-            <div style={{ background: '#FFB80018', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ fontSize: 18 }}>⏳</div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: T.pending }}>Marked as Paid</div>
-                <div style={{ fontSize: 11, color: T.ts }}>Awaiting landlord confirmation</div>
+            <div>
+              <div style={{ background: '#FFB80018', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <div style={{ fontSize: 18 }}>⏳</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.pending }}>Marked as Paid</div>
+                  <div style={{ fontSize: 11, color: T.ts }}>
+                    {currentPayment?.mpesa_ref ? `Ref: ${currentPayment.mpesa_ref}` : 'Awaiting landlord confirmation'}
+                  </div>
+                </div>
               </div>
+              <button onClick={() => { setMpesaRef(currentPayment?.mpesa_ref || ''); setModal(true) }}
+                style={{ width: '100%', background: 'transparent', border: `1px solid ${T.pending}44`, borderRadius: 12, padding: '10px', fontSize: 13, fontWeight: 600, color: T.pending, cursor: 'pointer' }}>
+                Update M-Pesa Reference
+              </button>
             </div>
           )}
 
@@ -228,6 +254,12 @@ export default function TenantHome({ profile }) {
             ))}
           </div>
         </div>
+
+        {/* Leave unit */}
+        <button onClick={() => setLeaveModal(true)}
+          style={{ width: '100%', background: 'transparent', border: `1px solid ${T.overdue}33`, borderRadius: 14, padding: '12px', fontSize: 13, fontWeight: 600, color: T.overdue, cursor: 'pointer', marginBottom: 20 }}>
+          Leave This Unit
+        </button>
 
         {/* Payment history — skip current month (shown in card above) */}
         <div style={{ fontSize: 17, fontWeight: 700, color: T.tp, marginBottom: 14 }}>Payment History</div>
@@ -281,6 +313,29 @@ export default function TenantHome({ profile }) {
               {submitting ? 'Submitting...' : 'Confirm Payment Marked'}
             </button>
             <button onClick={() => setModal(false)}
+              style={{ width: '100%', background: 'transparent', color: T.ts, border: `1px solid ${T.border}`, borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Leave unit confirmation */}
+      {leaveModal && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000BB', display: 'flex', alignItems: 'flex-end', zIndex: 100 }}
+          onClick={() => setLeaveModal(false)}>
+          <div style={{ background: T.surface, borderRadius: '24px 24px 0 0', padding: '28px 24px 48px', width: '100%', boxSizing: 'border-box', maxWidth: 480, margin: '0 auto' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width: 40, height: 4, background: T.border, borderRadius: 2, margin: '0 auto 24px' }} />
+            <div style={{ fontSize: 20, fontWeight: 800, color: T.tp, marginBottom: 8 }}>Leave This Unit?</div>
+            <div style={{ fontSize: 14, color: T.ts, marginBottom: 24, lineHeight: 1.6 }}>
+              You'll be unlinked from <span style={{ color: T.tp, fontWeight: 600 }}>{unit?.name}</span> at <span style={{ color: T.tp, fontWeight: 600 }}>{building?.name}</span>. Your payment history stays on record. You'll need a new invite code to rejoin.
+            </div>
+            <button onClick={leaveUnit} disabled={leaving}
+              style={{ width: '100%', background: T.overdue, color: '#fff', border: 'none', borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
+              {leaving ? 'Leaving...' : 'Yes, Leave Unit'}
+            </button>
+            <button onClick={() => setLeaveModal(false)}
               style={{ width: '100%', background: 'transparent', color: T.ts, border: `1px solid ${T.border}`, borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
               Cancel
             </button>
