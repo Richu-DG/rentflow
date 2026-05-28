@@ -11,6 +11,7 @@ const T = {
 const BackIc = () => <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={T.tp} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
 const CheckIc = ({ size = 14, color = '#fff' }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
 const CopyIc = () => <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M8 4H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2M8 4h8M8 4a2 2 0 012-2h4a2 2 0 012 2" /></svg>
+const EditIc = () => <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
 
 const Pill = ({ status }) => {
   const m = {
@@ -42,13 +43,49 @@ function buildMonthSlots(unitCreatedAt, payments, currentMonth) {
   return slots.reverse()
 }
 
-export default function UnitDetail({ unit, building, onBack, onNavigate }) {
+export default function UnitDetail({ unit: unitProp, building, onBack, onNavigate }) {
+  const [unit, setUnit] = useState(unitProp)
   const [monthSlots, setMonthSlots] = useState([])
   const [currentPayment, setCurrentPayment] = useState(null)
   const [tenantProfile, setTenantProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirming, setConfirming] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [editModal, setEditModal] = useState(false)
+  const [editName, setEditName] = useState(unit.name)
+  const [editRent, setEditRent] = useState(String(unit.rent))
+  const [editSaving, setEditSaving] = useState(false)
+  const [removeModal, setRemoveModal] = useState(false)
+  const [removing, setRemoving] = useState(false)
+
+  const saveEdit = async () => {
+    setEditSaving(true)
+    const { data, error } = await supabase
+      .from('units')
+      .update({ name: editName.trim(), rent: parseInt(editRent) })
+      .eq('id', unit.id)
+      .select()
+      .single()
+    if (!error && data) setUnit(prev => ({ ...prev, name: data.name, rent: data.rent }))
+    setEditSaving(false)
+    setEditModal(false)
+  }
+
+  const removeTenant = async () => {
+    setRemoving(true)
+    const { error } = await supabase
+      .from('units')
+      .update({ tenant_id: null })
+      .eq('id', unit.id)
+    if (!error) {
+      setUnit(prev => ({ ...prev, tenant_id: null }))
+      setTenantProfile(null)
+      setCurrentPayment(null)
+      setMonthSlots([])
+    }
+    setRemoving(false)
+    setRemoveModal(false)
+  }
 
   const currentMonth = new Date().toISOString().slice(0, 7)
   const inviteLink = `rentflow.app/join/${unit.invite_code}`
@@ -139,7 +176,13 @@ export default function UnitDetail({ unit, building, onBack, onNavigate }) {
               <div style={{ fontSize: 12, color: T.ts }}>{building.name}</div>
             </div>
           </div>
-          <Pill status={paymentStatus} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div onClick={() => { setEditName(unit.name); setEditRent(String(unit.rent)); setEditModal(true) }}
+              style={{ width: 34, height: 34, background: T.surfaceAlt, borderRadius: 10, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <EditIc />
+            </div>
+            <Pill status={paymentStatus} />
+          </div>
         </div>
       </div>
 
@@ -161,6 +204,14 @@ export default function UnitDetail({ unit, building, onBack, onNavigate }) {
             ))}
           </div>
         </div>
+
+        {/* Remove tenant */}
+        {unit.tenant_id && (
+          <button onClick={() => setRemoveModal(true)}
+            style={{ width: '100%', background: 'transparent', border: `1px solid ${T.overdue}44`, borderRadius: 14, padding: '12px', color: T.overdue, fontWeight: 600, fontSize: 13, cursor: 'pointer', marginBottom: 16 }}>
+            Remove Tenant
+          </button>
+        )}
 
         {/* Pending confirmation card */}
         {currentPayment?.status === 'pending' && (
@@ -251,6 +302,56 @@ export default function UnitDetail({ unit, building, onBack, onNavigate }) {
           </div>
         ))}
       </div>
+
+      {/* Edit unit modal */}
+      {editModal && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000BB', display: 'flex', alignItems: 'flex-end', zIndex: 100 }}
+          onClick={() => setEditModal(false)}>
+          <div style={{ background: T.surface, borderRadius: '24px 24px 0 0', padding: '28px 24px 48px', width: '100%', boxSizing: 'border-box', maxWidth: 480, margin: '0 auto' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width: 40, height: 4, background: T.border, borderRadius: 2, margin: '0 auto 24px' }} />
+            <div style={{ fontSize: 20, fontWeight: 800, color: T.tp, marginBottom: 20 }}>Edit Unit</div>
+            {[['Unit Name', editName, setEditName, 'text'], ['Monthly Rent (KES)', editRent, setEditRent, 'number']].map(([label, val, setter, type]) => (
+              <div key={label} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, color: T.ts, marginBottom: 6, fontWeight: 600 }}>{label}</div>
+                <input type={type} value={val} onChange={e => setter(e.target.value)}
+                  style={{ width: '100%', background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 14, padding: '14px 16px', color: T.tp, fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+            ))}
+            <button onClick={saveEdit} disabled={editSaving || !editName.trim() || !editRent}
+              style={{ width: '100%', background: T.accent, color: T.bg, border: 'none', borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 10, marginTop: 10 }}>
+              {editSaving ? 'Saving...' : 'Save Changes'}
+            </button>
+            <button onClick={() => setEditModal(false)}
+              style={{ width: '100%', background: 'transparent', color: T.ts, border: `1px solid ${T.border}`, borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Remove tenant confirmation */}
+      {removeModal && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000BB', display: 'flex', alignItems: 'flex-end', zIndex: 100 }}
+          onClick={() => setRemoveModal(false)}>
+          <div style={{ background: T.surface, borderRadius: '24px 24px 0 0', padding: '28px 24px 48px', width: '100%', boxSizing: 'border-box', maxWidth: 480, margin: '0 auto' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width: 40, height: 4, background: T.border, borderRadius: 2, margin: '0 auto 24px' }} />
+            <div style={{ fontSize: 20, fontWeight: 800, color: T.tp, marginBottom: 8 }}>Remove Tenant?</div>
+            <div style={{ fontSize: 14, color: T.ts, marginBottom: 24, lineHeight: 1.6 }}>
+              This will vacate <span style={{ color: T.tp, fontWeight: 600 }}>{unit.name}</span> and unlink <span style={{ color: T.tp, fontWeight: 600 }}>{tenantProfile?.full_name || 'the tenant'}</span>. Their payment history stays on record.
+            </div>
+            <button onClick={removeTenant} disabled={removing}
+              style={{ width: '100%', background: T.overdue, color: '#fff', border: 'none', borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
+              {removing ? 'Removing...' : 'Yes, Remove Tenant'}
+            </button>
+            <button onClick={() => setRemoveModal(false)}
+              style={{ width: '100%', background: 'transparent', color: T.ts, border: `1px solid ${T.border}`, borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -12,6 +12,9 @@ const BackIc = () => <svg width={20} height={20} viewBox="0 0 24 24" fill="none"
 const PlusIc = () => <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
 const ChevR = () => <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={T.ts} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
 const SearchIc = () => <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={T.tm} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" /></svg>
+const EditIc = () => <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={T.accent} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+
+const ord = d => `${d}${d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'}`
 
 const Pill = ({ status }) => {
   const m = {
@@ -28,11 +31,39 @@ const Pill = ({ status }) => {
   )
 }
 
-export default function BuildingDetail({ building, onBack, onNavigate }) {
+export default function BuildingDetail({ building: buildingProp, onBack, onNavigate }) {
+  const [building, setBuilding] = useState(buildingProp)
   const [units, setUnits] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [editModal, setEditModal] = useState(false)
+  const [editName, setEditName] = useState(building.name)
+  const [editLocation, setEditLocation] = useState(building.location || '')
+  const [editDueDay, setEditDueDay] = useState(building.due_day)
+  const [editNotifyDay, setEditNotifyDay] = useState(building.notify_day)
+  const [saving, setSaving] = useState(false)
+
+  const openEdit = () => {
+    setEditName(building.name)
+    setEditLocation(building.location || '')
+    setEditDueDay(building.due_day)
+    setEditNotifyDay(building.notify_day)
+    setEditModal(true)
+  }
+
+  const saveEdit = async () => {
+    setSaving(true)
+    const { data, error } = await supabase
+      .from('buildings')
+      .update({ name: editName.trim(), location: editLocation.trim(), due_day: editDueDay, notify_day: editNotifyDay })
+      .eq('id', building.id)
+      .select()
+      .single()
+    if (!error && data) setBuilding(data)
+    setSaving(false)
+    setEditModal(false)
+  }
 
   useEffect(() => { fetchUnits() }, [building.id])
 
@@ -95,9 +126,15 @@ export default function BuildingDetail({ building, onBack, onNavigate }) {
               <div style={{ fontSize: 12, color: T.ts }}>{building.location}</div>
             </div>
           </div>
-          <div onClick={() => onNavigate('addUnit', building)}
-            style={{ width: 36, height: 36, background: T.accentDim, borderRadius: 10, border: `1px solid ${T.accent}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <PlusIc />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div onClick={openEdit}
+              style={{ width: 36, height: 36, background: T.surfaceAlt, borderRadius: 10, border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <EditIc />
+            </div>
+            <div onClick={() => onNavigate('addUnit', building)}
+              style={{ width: 36, height: 36, background: T.accentDim, borderRadius: 10, border: `1px solid ${T.accent}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <PlusIc />
+            </div>
           </div>
         </div>
 
@@ -154,6 +191,54 @@ export default function BuildingDetail({ building, onBack, onNavigate }) {
           </div>
         ))}
       </div>
+      {/* Edit building modal */}
+      {editModal && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000BB', display: 'flex', alignItems: 'flex-end', zIndex: 100 }}
+          onClick={() => setEditModal(false)}>
+          <div style={{ background: T.surface, borderRadius: '24px 24px 0 0', padding: '28px 24px 48px', width: '100%', boxSizing: 'border-box', maxWidth: 480, margin: '0 auto' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width: 40, height: 4, background: T.border, borderRadius: 2, margin: '0 auto 24px' }} />
+            <div style={{ fontSize: 20, fontWeight: 800, color: T.tp, marginBottom: 20 }}>Edit Building</div>
+
+            {[['Building Name', editName, setEditName], ['Location', editLocation, setEditLocation]].map(([label, val, setter]) => (
+              <div key={label} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, color: T.ts, marginBottom: 6, fontWeight: 600 }}>{label}</div>
+                <input value={val} onChange={e => setter(e.target.value)}
+                  style={{ width: '100%', background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 14, padding: '14px 16px', color: T.tp, fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+            ))}
+
+            <div style={{ fontSize: 12, color: T.ts, marginBottom: 8, fontWeight: 600 }}>Rent Due Day</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {[1, 2, 3, 5, 10, 15, 20, 25, 28].map(d => (
+                <div key={d} onClick={() => setEditDueDay(d)}
+                  style={{ width: 44, height: 44, borderRadius: 12, background: editDueDay === d ? T.accent : T.surfaceAlt, border: `1px solid ${editDueDay === d ? T.accent : T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: editDueDay === d ? T.bg : T.ts, cursor: 'pointer' }}>
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ fontSize: 12, color: T.ts, marginBottom: 8, fontWeight: 600 }}>Notify Day</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+              {[1, 2, 3, 4, 5, 6, 7, 10, 14].map(d => (
+                <div key={d} onClick={() => setEditNotifyDay(d)}
+                  style={{ width: 44, height: 44, borderRadius: 12, background: editNotifyDay === d ? '#4D9EFF' : T.surfaceAlt, border: `1px solid ${editNotifyDay === d ? '#4D9EFF' : T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: editNotifyDay === d ? '#fff' : T.ts, cursor: 'pointer' }}>
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            <button onClick={saveEdit} disabled={saving || !editName.trim()}
+              style={{ width: '100%', background: saving || !editName.trim() ? T.border : T.accent, color: T.bg, border: 'none', borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+            <button onClick={() => setEditModal(false)}
+              style={{ width: '100%', background: 'transparent', color: T.ts, border: `1px solid ${T.border}`, borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
